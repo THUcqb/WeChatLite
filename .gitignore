@@ -136,3 +136,4 @@ venv.bak/
 *.out
 *.app
 
+chat_server

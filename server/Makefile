@@ -1,5 +1,7 @@
+CXXFLAGS = -Wall -Werror -std=c++11 -O2 -lpthread
+
 all:
-	$(CXX) -Wall -Werror chat_server.cpp -O2 -lpthread -o chat_server
+	$(CXX) $(CXXFLAGS) main.cpp json.hpp
 
 clean:
-	$(RM) -rf chat_server
+	$(RM) -rf a.out

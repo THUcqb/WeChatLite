@@ -7,17 +7,22 @@
  *
  */
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
+#include <cstring>
 #include <pthread.h>
-#include <sys/types.h>
 #include <iostream>
+#include <string>
+
+#include "json.hpp"
+// for convenience
+using json = nlohmann::json;
 
 #define MAX_CLIENTS	100
 
@@ -30,7 +35,7 @@ typedef struct
     struct sockaddr_in addr;	/* Client remote address */
     int connfd;			/* Connection file descriptor */
     int uid;			/* Client unique identifier */
-    char name[32];			/* Client name */
+    std::string name;			/* Client name */
 } client_t;
 
 client_t *clients[MAX_CLIENTS];
@@ -38,8 +43,7 @@ client_t *clients[MAX_CLIENTS];
 /* Add client to queue */
 void queue_add(client_t *cl)
 {
-    int i;
-    for(i = 0; i < MAX_CLIENTS; i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         if (!clients[i])
         {
@@ -52,8 +56,7 @@ void queue_add(client_t *cl)
 /* Delete client from queue */
 void queue_delete(int uid)
 {
-    int i;
-    for(i = 0; i < MAX_CLIENTS; i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         if (clients[i])
         {
@@ -67,51 +70,48 @@ void queue_delete(int uid)
 }
 
 /* Send message to all clients but the sender */
-void send_message(char *s, int uid)
+void send_message(std::string s, int uid)
 {
-    int i;
-    for(i = 0; i < MAX_CLIENTS; i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         if (clients[i])
         {
             if (clients[i]->uid != uid)
             {
-                write(clients[i]->connfd, s, strlen(s));
+                write(clients[i]->connfd, s.c_str(), s.length());
             }
         }
     }
 }
 
 /* Send message to all clients */
-void send_message_all(char *s)
+void send_message_all(std::string s)
 {
-    int i;
-    for(i=0;i<MAX_CLIENTS;i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         if (clients[i])
         {
-            write(clients[i]->connfd, s, strlen(s));
+            write(clients[i]->connfd, s.c_str(), s.length());
         }
     }
 }
 
 /* Send message to sender */
-void send_message_self(const char *s, int connfd)
+void send_message_self(std::string s, int connfd)
 {
-    write(connfd, s, strlen(s));
+    write(connfd, s.c_str(), s.length());
 }
 
 /* Send message to client */
-void send_message_client(char *s, int uid)
+void send_message_client(std::string s, int uid)
 {
-    int i;
-    for (i = 0; i < MAX_CLIENTS; i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         if (clients[i])
         {
             if (clients[i]->uid == uid)
             {
-                write(clients[i]->connfd, s, strlen(s));
+                write(clients[i]->connfd, s.c_str(), s.length());
             }
         }
     }
@@ -120,13 +120,12 @@ void send_message_client(char *s, int uid)
 /* Send list of active clients */
 void send_active_clients(int connfd)
 {
-    int i;
-    char s[64];
-    for(i = 0; i<MAX_CLIENTS; i++)
+    std::string s;
+    for (int i = 0; i<MAX_CLIENTS; i++)
     {
         if (clients[i])
         {
-            sprintf(s, "<<CLIENT %d | %s", clients[i]->uid, clients[i]->name);
+            s = "<<CLIENT " + std::to_string(clients[i]->uid) + " | " + clients[i]->name;
             send_message_self(s, connfd);
         }
     }
@@ -145,7 +144,7 @@ void print_client_addr(struct sockaddr_in addr)
 /* Handle all communication with the client */
 void *handle_client(void *arg)
 {
-    char buff_out[1024];
+    std::string buff_out;
     char buff_in[1024];
     int rlen;
 
@@ -156,7 +155,7 @@ void *handle_client(void *arg)
     print_client_addr(cli->addr);
     printf(" referenced by %d\n", cli->uid);
 
-    sprintf(buff_out, "<<JOIN, HELLO %s", cli->name);
+    buff_out = "<<JOIN, HELLO " + cli->name;
     send_message_all(buff_out);
 
     /* Receive input from client */
@@ -170,94 +169,55 @@ void *handle_client(void *arg)
         }
 
         std::cerr << "Log, received raw message \'" << buff_in
-        << "\' from " << cli->uid << std::endl;
+                  << "\' from " << cli->uid << std::endl;
 
-        char *command, *param;
-        command = strtok(buff_in, " ");
-        if (!strcmp(command, "\\QUIT"))
-        {
-            break;
-        }
-        else if (!strcmp(command, "\\PING"))
+        auto message = json::parse(buff_in);
+        auto cmd = message["cmd"];
+
+        if (cmd == "ping")
         {
             send_message_self("<<PONG", cli->connfd);
         }
-        else if (!strcmp(command, "\\NAME"))
+        else if (cmd == "login")
         {
-            param = strtok(NULL, " ");
-            if (param)
+            auto username = message["username"];
+            auto password = message["password"];
+            if (!username.is_null() && !password.is_null())
             {
-                sprintf(buff_out, "<<RENAME, %s TO %s", cli->name, param);
+                auto buff_out = "<<RENAME, " + cli->name + " TO " + username.dump();
                 //  potential buffer overflow issue
-                strcpy(cli->name, param);
+                cli->name = username;
                 send_message_all(buff_out);
             }
             else{
                 send_message_self("<<NAME CANNOT BE NULL", cli->connfd);
             }
         }
-        else if (!strcmp(command, "\\PRIVATE"))
+        else if (cmd == "search")
         {
-            param = strtok(NULL, " ");
-            if (param)
-            {
-                int uid = atoi(param);
-                param = strtok(NULL, " ");
-                if (param)
-                {
-                    sprintf(buff_out, "[PM][%s]", cli->name);
-                    while (param != NULL)
-                    {
-                        strcat(buff_out, " ");
-                        strcat(buff_out, param);
-                        param = strtok(NULL, " ");
-                    }
-                    strcat(buff_out, "\r\n");
-                    send_message_client(buff_out, uid);
-                }
-                else
-                {
-                    send_message_self("<<MESSAGE CANNOT BE NULL", cli->connfd);
-                }
-            }
-            else
-            {
-                send_message_self("<<REFERENCE CANNOT BE NULL", cli->connfd);
-            }
-        }
-        else if (!strcmp(command, "\\ACTIVE"))
-        {
-            sprintf(buff_out, "<<CLIENTS %d\n", cli_count);
-            send_message_self(buff_out, cli->connfd);
             send_active_clients(cli->connfd);
         }
-        else if (!strcmp(command, "\\HELP"))
+        else if (cmd == "quit")
         {
-            strcat(buff_out, "\\QUIT     Quit chatroom\r\n");
-            strcat(buff_out, "\\PING     Server test\r\n");
-            strcat(buff_out, "\\NAME     <name> Change nickname\r\n");
-            strcat(buff_out, "\\PRIVATE  <reference> <message> Send private message\r\n");
-            strcat(buff_out, "\\ACTIVE   Show active clients\r\n");
-            strcat(buff_out, "\\HELP     Show help\r\n");
-            send_message_self(buff_out, cli->connfd);
+            break;
         }
         else
         {
-            send_message_self("<<UNKOWN COMMAND\r\n", cli->connfd);
+            std::cerr << "Log, ignoring invalid msg above" << std::endl;
         }
     }
 
     /* Close connection */
-    close(cli->connfd);
-    sprintf(buff_out, "<<LEAVE, BYE %s\r\n", cli->name);
+    buff_out = "<<LEAVE, BYE " + cli->name;
     send_message_all(buff_out);
+    close(cli->connfd);
 
     /* Delete client from queue and yeild thread */
     queue_delete(cli->uid);
     printf("Leave ");
     print_client_addr(cli->addr);
     printf(" referenced by %d\n", cli->uid);
-    free(cli);
+    delete cli;
     cli_count--;
     pthread_detach(pthread_self());
 
@@ -318,7 +278,7 @@ int main(int argc, char *argv[])
         cli->addr = cli_addr;
         cli->connfd = connfd;
         cli->uid = uid++;
-        sprintf(cli->name, "%d", cli->uid);
+        cli->name = std::to_string(cli->uid);
 
         /* Add client to the queue and fork thread */
         queue_add(cli);

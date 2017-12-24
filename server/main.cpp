@@ -185,11 +185,11 @@ void *handle_client(void *arg)
             if (!username.is_null() && !password.is_null())
             {
                 auto buff_out = "<<RENAME, " + cli->name + " TO " + username.dump();
-                //  potential buffer overflow issue
                 cli->name = username;
                 send_message_all(buff_out);
             }
-            else{
+            else
+            {
                 send_message_self("<<NAME CANNOT BE NULL", cli->connfd);
             }
         }

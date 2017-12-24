@@ -10,14 +10,22 @@ The project is intended to run on Linux and Unix based systems.
 
 ## Build
 ### Server
+First, fetch dependencies.
+```bash
+bash fetch.sh
+```
+
 Run GNU make in the repository
-`make`
+```bash
+cd server
+make
+```
 
 Then start
-`./chat_server 5000`
+`./a.out 5000`
 
 ### Client
-`python test.py --port 5000`
+`python client.py --port 5000`
 
 ## Features (out of maintenance)
 * Accept multiple client (max 100)

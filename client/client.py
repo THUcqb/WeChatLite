@@ -33,7 +33,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     data = s.recv(1024).decode('utf-8')
     try:
-        assert data[:14] == '<<JOIN, HELLO '
+        assert data[:5] == 'HELLO'
         print(info.CONNECT_OK)
     except AssertionError:
         print(info.CONNECT_FAIL)

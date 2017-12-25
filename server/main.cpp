@@ -119,6 +119,14 @@ void *handle_client(void *arg)
         {
             handle_recvmsg(cli);
         }
+        else if (cmd == "sendfile")
+        {
+            handle_sendfile(cli, message);
+        }
+        else if (cmd == "recvfile")
+        {
+            handle_recvfile(cli);
+        }
         else if (cmd == "quit")
         {
             handle_quit(cli);

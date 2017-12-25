@@ -1,5 +1,10 @@
 import json
 import info
+import os
+import dropbox
+dbx = dropbox.Dropbox(
+    'X5vzMUOqyzAAAAAAAAAAjlHk8HqJM8U07w8B9fDqDp9q03HQ8UhjRlBiGLarrRro'
+)
 
 
 def ping(s, line):
@@ -25,11 +30,12 @@ def quit(s, line=""):
 def login(s, line):
     try:
         data = {}
-        data['cmd'], data['username'], data['password'] = line.split(' ')
+        data['cmd'], data['username'], data['password'] = line.split()
         s.send(json.dumps(data).encode('utf-8'))
-        data = json.loads(s.recv(1024).decode('utf-8'))
-        if data['status'] == 'OK':
+        response = json.loads(s.recv(1024).decode('utf-8'))
+        if response['status'] == 'OK':
             print(info.LOGIN_OK)
+            info.USERNAME = data['username']
             return True
         else:
             print(info.LOGIN_ERROR)
@@ -40,7 +46,7 @@ def login(s, line):
 def add(s, line):
     try:
         data = {}
-        data['cmd'], data['friend'] = line.split(' ')
+        data['cmd'], data['friend'] = line.split()
         s.send(json.dumps(data).encode('utf-8'))
         data = json.loads(s.recv(1024).decode('utf-8'))
         if data['status'] == 'OK':
@@ -67,17 +73,33 @@ def recvmsg(s, line):
         print('From %s: %s' % (item['friend'], item['msg']))
 
 
+def recvfile(s, line):
+    s.send(json.dumps({'cmd': 'recvfile'}).encode('utf-8'))
+    data = json.loads(s.recv(1024).decode('utf-8'))
+    print(info.RECVFILE)
+    for item in data['files']:
+        print('Saving file %s from %s' % (item['path'], item['friend']))
+        try:
+            dbx.files_download_to_file(
+                '/Users/cqb/Downloads/' + os.path.basename(item['path']),
+                item['path']
+            )
+            print('Downloading successfully.')
+        except Exception:
+            print('Downloading failed.')
+
+
 def chat(s, line):
     try:
         data = {}
-        data['cmd'], data['friend'] = line.split(' ')
+        data['cmd'], data['friend'] = line.split()
         s.send(json.dumps(data).encode('utf-8'))
         response = json.loads(s.recv(1024).decode('utf-8'))
         if response['status'] == 'OK':
             print(info.CHAT_OK)
             while True:
                 line = input().strip()
-                cmd = line.split(' ')[0]
+                cmd = line.split()[0]
                 if cmd == 'exit':
                     break
                 else:
@@ -93,22 +115,41 @@ def chat(s, line):
 
 
 def sendmsg(s, friend, line):
-    data = {}
-    data['cmd'], data['msg'] = line.split(' ')
-    data['friend'] = friend
-    s.send(json.dumps(data).encode('utf-8'))
+    try:
+        data = {}
+        data['cmd'], data['msg'] = line.split()
+        data['friend'] = friend
+    except ValueError:
+        print(info.SENDMSG_ARG_ERROR)
+    else:
+        s.send(json.dumps(data).encode('utf-8'))
 
 
 def sendfile(s, friend, line):
-    data['cmd'], data['filename'] = line.split(' ')
-    data['friend'] = friend
-    print("Send file not implemented.")
+    try:
+        data = {}
+        data['cmd'], file_path = line.split()
+        data['friend'] = friend
+        try:
+            with open(file_path, 'rb') as f:
+                dbx_path = '/' + info.USERNAME +\
+                           '/' + os.path.basename(file_path)
+                dbx.files_upload(f.read(), dbx_path)
+                data['path'] = dbx_path
+        except Exception:
+            print(info.SENDFILE_UPLOAD_ERROR)
+        else:
+            print(info.SENDFILE_OK % data['path'])
+            s.send(json.dumps(data).encode('utf-8'))
+    except ValueError:
+        print(info.SENDFILE_ARG_ERROR)
 
 
 commands = {
     'guest':
     {
         'ping': ping,
+        'search': search,
         'login': login,
         'quit': quit,
     },
@@ -119,6 +160,7 @@ commands = {
         'add': add,
         'ls': ls,
         'recvmsg': recvmsg,
+        'recvfile': recvfile,
         'chat': chat,
         'quit': quit,
     },

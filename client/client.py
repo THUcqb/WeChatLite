@@ -14,7 +14,7 @@ def event_loop(s):
     logged_in = False
     while True:
         line = input().strip()
-        cmd = line.split(' ')[0]
+        cmd = line.split()[0]
         mode = 'user' if logged_in else 'guest'
         try:
             logged_in = commands[mode][cmd](s, line) or logged_in

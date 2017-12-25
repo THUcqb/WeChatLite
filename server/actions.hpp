@@ -36,6 +36,7 @@ void handle_login(client_t *cli, json message)
         profiles[username]["password"] = password;
         profiles[username]["friends"] = json::object();
         profiles[username]["msgbuffer"] = json::array();
+        profiles[username]["filebuffer"] = json::array();
         profiles[username]["connfd"] = cli->connfd;
         cli->name = username;
         buff_out = R"({"status": "OK"})";
@@ -114,4 +115,20 @@ void handle_recvmsg(client_t *cli)
     profiles[cli->name]["msgbuffer"] = json::array();
     send_to(buff_out.dump(), cli->connfd);
 }
+
+void handle_sendfile(client_t *cli, json message)
+{
+    message.erase("cmd");
+    std::string fri = message["friend"];
+    profiles[fri]["filebuffer"] += message;
+}
+
+void handle_recvfile(client_t *cli)
+{
+    json buff_out;
+    buff_out["files"] = profiles[cli->name]["filebuffer"];
+    profiles[cli->name]["filebuffer"] = json::array();
+    send_to(buff_out.dump(), cli->connfd);
+}
+
 #endif

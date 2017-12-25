@@ -1,7 +1,8 @@
 CONNECT_OK = "Connected. Entering event loop.."
 CONNECT_FAIL = "Connect failed. Exiting.."
 DISCONNECT = "Disconnecting from server. QUIT."
-
 CMD_NOT_EXIST = "No such cmd! Please input again."
-
+LOGIN_FIRST = "Please do sign up or log in first."
 LOGIN_ARG_ERROR = "Login Arg Error"
+LOGIN_OK = "Logged in successfully"
+LOGIN_ERROR = "Failed. Wrong password or already online!"

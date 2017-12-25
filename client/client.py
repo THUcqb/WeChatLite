@@ -1,30 +1,13 @@
 import argparse
 import socket
 import info
-from actions import ping, login, search, quit, add, ls
+from actions import commands
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', default=5000)
 args = parser.parse_args()
 HOST = '127.0.0.1'
 PORT = int(args.port)
-
-commands = {
-    'guest':
-    {
-        'ping': ping,
-        'login': login,
-        'quit': quit,
-    },
-    'user':
-    {
-        'ping': ping,
-        'search': search,
-        'add': add,
-        'ls': ls,
-        'quit': quit,
-    }
-}
 
 
 def event_loop(s):
@@ -54,5 +37,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             event_loop(s)
         except KeyboardInterrupt:
-            quit(s)
             print(info.DISCONNECT)
+            commands['guest']['quit'](s)

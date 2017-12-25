@@ -54,9 +54,6 @@ void print_client_addr(struct sockaddr_in addr)
     (addr.sin_addr.s_addr & 0xFF000000)>>24);
 }
 
-/* User profile indexed by username */
-json profiles;
-
 /* Handle all communication with the client */
 void *handle_client(void *arg)
 {
@@ -72,7 +69,7 @@ void *handle_client(void *arg)
     printf(" referenced by %d\n", cli->uid);
 
     buff_out = "HELLO" + cli->name;
-    send_broadcast(buff_out);
+    send_to(buff_out, cli->connfd);
 
     /* Receive input from client */
     while ((rlen = read(cli->connfd, buff_in, sizeof(buff_in)-1)) > 0)
@@ -92,7 +89,7 @@ void *handle_client(void *arg)
 
         if (cmd == "ping")
         {
-            send_self("<<PONG", cli->connfd);
+            send_to("<<PONG", cli->connfd);
         }
         else if (cmd == "login")
         {
@@ -104,6 +101,7 @@ void *handle_client(void *arg)
         }
         else if (cmd == "quit")
         {
+            handle_quit(cli);
             break;
         }
         else
@@ -113,10 +111,8 @@ void *handle_client(void *arg)
     }
 
     /* Close connection */
-    buff_out = "BYE " + cli->name;
-    send_broadcast(buff_out);
     close(cli->connfd);
-
+    
     /* Delete client from queue and yeild thread */
     queue_delete(cli->uid);
     printf("Leave ");
@@ -183,7 +179,6 @@ int main(int argc, char *argv[])
         cli->addr = cli_addr;
         cli->connfd = connfd;
         cli->uid = uid++;
-        cli->name = std::to_string(cli->uid);
 
         /* Add client to the queue and fork thread */
         queue_add(cli);

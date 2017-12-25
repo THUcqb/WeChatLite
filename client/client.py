@@ -10,29 +10,40 @@ HOST = '127.0.0.1'
 PORT = int(args.port)
 
 commands = {
-    'ping': ping,
-    'login': login,
-    'search': search,
-    'quit': quit,
+    'guest':
+    {
+        'ping': ping,
+        'login': login,
+        'quit': quit,
+    },
+    'user':
+    {
+        'ping': ping,
+        'search': search,
+        'quit': quit,
+    }
 }
 
 
 def event_loop(s):
+    logged_in = False
     while True:
-        line = input()
+        line = input().strip()
         cmd = line.split(' ')[0]
+        mode = 'user' if logged_in else 'guest'
         try:
-            commands[cmd](line, s)
+            logged_in = commands[mode][cmd](line, s)
         except KeyError:
             print(info.CMD_NOT_EXIST)
         else:
-            if cmd == 'quit': break
+            if cmd == 'quit':
+                break
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((HOST, PORT))
-    data = s.recv(1024).decode('utf-8')
     try:
+        s.connect((HOST, PORT))
+        data = s.recv(1024).decode('utf-8')
         assert data[:5] == 'HELLO'
         print(info.CONNECT_OK)
     except AssertionError:

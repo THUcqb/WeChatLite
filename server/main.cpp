@@ -107,6 +107,18 @@ void *handle_client(void *arg)
         {
             handle_ls(cli);
         }
+        else if (cmd == "chat")
+        {
+            handle_chat(cli, message);
+        }
+        else if (cmd == "sendmsg")
+        {
+            handle_sendmsg(cli, message);
+        }
+        else if (cmd == "recvmsg")
+        {
+            handle_recvmsg(cli);
+        }
         else if (cmd == "quit")
         {
             handle_quit(cli);

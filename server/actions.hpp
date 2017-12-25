@@ -34,7 +34,8 @@ void handle_login(client_t *cli, json message)
     {
         // Sign up
         profiles[username]["password"] = password;
-        profiles[username]["friends"] = json::array();
+        profiles[username]["friends"] = json::object();
+        profiles[username]["msgbuffer"] = json::array();
         profiles[username]["connfd"] = cli->connfd;
         cli->name = username;
         buff_out = R"({"status": "OK"})";
@@ -56,7 +57,7 @@ void handle_add(client_t *cli, json message)
     std::string buff_out;
     if (!profiles[target].is_null())
     {
-        profiles[cli->name]["friends"] += target;
+        profiles[cli->name]["friends"][target] = json::object();
         buff_out = R"({"status": "OK"})";
     }
     else
@@ -68,7 +69,6 @@ void handle_add(client_t *cli, json message)
 
 void handle_ls(client_t *cli)
 {
-    auto friends = json::array();
     send_to(profiles[cli->name]["friends"].dump(), cli->connfd);
 }
 
@@ -83,4 +83,35 @@ void handle_quit(client_t *cli)
     send_to(buff_out, cli->connfd);
 }
 
+void handle_chat(client_t *cli, json message)
+{
+    std::string buff_out;
+    std::string fri = message["friend"];
+    std::cout << profiles[cli->name]["friends"] << std::endl;
+    std::cout << fri << std::endl;
+    if (profiles[cli->name]["friends"][fri].is_null())
+    {
+        buff_out = R"({"status": "ERROR"})";
+    }
+    else
+    {
+        buff_out = R"({"status": "OK"})";
+    }
+    send_to(buff_out, cli->connfd);
+}
+
+void handle_sendmsg(client_t *cli, json message)
+{
+    message.erase("cmd");
+    std::string fri = message["friend"];
+    profiles[fri]["msgbuffer"] += message;
+}
+
+void handle_recvmsg(client_t *cli)
+{
+    json buff_out;
+    buff_out["msg"] = profiles[cli->name]["msgbuffer"];
+    profiles[cli->name]["msgbuffer"] = json::array();
+    send_to(buff_out.dump(), cli->connfd);
+}
 #endif

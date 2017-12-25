@@ -1,7 +1,7 @@
 import argparse
 import socket
 import info
-from actions import ping, login, search, quit
+from actions import ping, login, search, quit, add, ls
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', default=5000)
@@ -20,6 +20,8 @@ commands = {
     {
         'ping': ping,
         'search': search,
+        'add': add,
+        'ls': ls,
         'quit': quit,
     }
 }
@@ -32,7 +34,7 @@ def event_loop(s):
         cmd = line.split(' ')[0]
         mode = 'user' if logged_in else 'guest'
         try:
-            logged_in = commands[mode][cmd](line, s)
+            logged_in = commands[mode][cmd](s, line) or logged_in
         except KeyError:
             print(info.CMD_NOT_EXIST)
         else:
@@ -46,11 +48,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         data = s.recv(1024).decode('utf-8')
         assert data[:5] == 'HELLO'
         print(info.CONNECT_OK)
-    except AssertionError:
+    except Exception:
         print(info.CONNECT_FAIL)
     else:
         try:
             event_loop(s)
         except KeyboardInterrupt:
-            quit("", s)
+            quit(s)
             print(info.DISCONNECT)

@@ -99,6 +99,14 @@ void *handle_client(void *arg)
         {
             handle_search(cli);
         }
+        else if (cmd == "add")
+        {
+            handle_add(cli, message);
+        }
+        else if (cmd == "ls")
+        {
+            handle_ls(cli);
+        }
         else if (cmd == "quit")
         {
             handle_quit(cli);
@@ -112,7 +120,7 @@ void *handle_client(void *arg)
 
     /* Close connection */
     close(cli->connfd);
-    
+
     /* Delete client from queue and yeild thread */
     queue_delete(cli->uid);
     printf("Leave ");

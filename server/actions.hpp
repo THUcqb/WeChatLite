@@ -34,6 +34,7 @@ void handle_login(client_t *cli, json message)
     {
         // Sign up
         profiles[username]["password"] = password;
+        profiles[username]["friends"] = json::array();
         profiles[username]["connfd"] = cli->connfd;
         cli->name = username;
         buff_out = R"({"status": "OK"})";
@@ -47,6 +48,28 @@ void handle_search(client_t *cli)
     for (auto iter = profiles.begin(); iter != profiles.end(); ++iter)
         users += iter.key();
     send_to(users.dump(), cli->connfd);
+}
+
+void handle_add(client_t *cli, json message)
+{
+    std::string target = message["friend"];
+    std::string buff_out;
+    if (!profiles[target].is_null())
+    {
+        profiles[cli->name]["friends"] += target;
+        buff_out = R"({"status": "OK"})";
+    }
+    else
+    {
+        buff_out = R"({"status": "ERROR"})";
+    }
+    send_to(buff_out, cli->connfd);
+}
+
+void handle_ls(client_t *cli)
+{
+    auto friends = json::array();
+    send_to(profiles[cli->name]["friends"].dump(), cli->connfd);
 }
 
 void handle_quit(client_t *cli)

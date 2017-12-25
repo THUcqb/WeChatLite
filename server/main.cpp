@@ -1,44 +1,22 @@
-/*
- * Copyright 2014
- *
- * Author: 		Dinux
- * Description:		Simple chatroom in C
- * Version:		1.0
- *
- */
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <cstdio>
-#include <cstdlib>
-#include <unistd.h>
 #include <errno.h>
 #include <cstring>
 #include <pthread.h>
 #include <iostream>
 #include <string>
-
+#include "typedef.hpp"
+#include "actions.hpp"
 #include "json.hpp"
-// for convenience
-using json = nlohmann::json;
 
-#define MAX_CLIENTS	100
+using json = nlohmann::json;
 
 static unsigned int cli_count = 0;
 static int uid = 0;
 
-/* Client structure */
-typedef struct
-{
-    struct sockaddr_in addr;	/* Client remote address */
-    int connfd;			/* Connection file descriptor */
-    int uid;			/* Client unique identifier */
-    std::string name;			/* Client name */
-} client_t;
-
-client_t *clients[MAX_CLIENTS];
 
 /* Add client to queue */
 void queue_add(client_t *cl)
@@ -58,75 +36,10 @@ void queue_delete(int uid)
 {
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        if (clients[i])
+        if (clients[i] && clients[i]->uid == uid)
         {
-            if (clients[i]->uid == uid)
-            {
-                clients[i] = NULL;
-                return;
-            }
-        }
-    }
-}
-
-/* Send message to all clients but the sender */
-void send_message(std::string s, int uid)
-{
-    for (int i = 0; i < MAX_CLIENTS; i++)
-    {
-        if (clients[i])
-        {
-            if (clients[i]->uid != uid)
-            {
-                write(clients[i]->connfd, s.c_str(), s.length());
-            }
-        }
-    }
-}
-
-/* Send message to all clients */
-void send_message_all(std::string s)
-{
-    for (int i = 0; i < MAX_CLIENTS; i++)
-    {
-        if (clients[i])
-        {
-            write(clients[i]->connfd, s.c_str(), s.length());
-        }
-    }
-}
-
-/* Send message to sender */
-void send_message_self(std::string s, int connfd)
-{
-    write(connfd, s.c_str(), s.length());
-}
-
-/* Send message to client */
-void send_message_client(std::string s, int uid)
-{
-    for (int i = 0; i < MAX_CLIENTS; i++)
-    {
-        if (clients[i])
-        {
-            if (clients[i]->uid == uid)
-            {
-                write(clients[i]->connfd, s.c_str(), s.length());
-            }
-        }
-    }
-}
-
-/* Send list of active clients */
-void send_active_clients(int connfd)
-{
-    std::string s;
-    for (int i = 0; i<MAX_CLIENTS; i++)
-    {
-        if (clients[i])
-        {
-            s = "<<CLIENT " + std::to_string(clients[i]->uid) + " | " + clients[i]->name;
-            send_message_self(s, connfd);
+            clients[i] = NULL;
+            return;
         }
     }
 }
@@ -155,8 +68,8 @@ void *handle_client(void *arg)
     print_client_addr(cli->addr);
     printf(" referenced by %d\n", cli->uid);
 
-    buff_out = "<<JOIN, HELLO " + cli->name;
-    send_message_all(buff_out);
+    buff_out = "HELLO" + cli->name;
+    send_to(buff_out, cli->connfd);
 
     /* Receive input from client */
     while ((rlen = read(cli->connfd, buff_in, sizeof(buff_in)-1)) > 0)
@@ -176,29 +89,47 @@ void *handle_client(void *arg)
 
         if (cmd == "ping")
         {
-            send_message_self("<<PONG", cli->connfd);
+            send_to("<<PONG", cli->connfd);
         }
         else if (cmd == "login")
         {
-            auto username = message["username"];
-            auto password = message["password"];
-            if (!username.is_null() && !password.is_null())
-            {
-                auto buff_out = "<<RENAME, " + cli->name + " TO " + username.dump();
-                cli->name = username;
-                send_message_all(buff_out);
-            }
-            else
-            {
-                send_message_self("<<NAME CANNOT BE NULL", cli->connfd);
-            }
+            handle_login(cli, message);
         }
         else if (cmd == "search")
         {
-            send_active_clients(cli->connfd);
+            handle_search(cli);
+        }
+        else if (cmd == "add")
+        {
+            handle_add(cli, message);
+        }
+        else if (cmd == "ls")
+        {
+            handle_ls(cli);
+        }
+        else if (cmd == "chat")
+        {
+            handle_chat(cli, message);
+        }
+        else if (cmd == "sendmsg")
+        {
+            handle_sendmsg(cli, message);
+        }
+        else if (cmd == "recvmsg")
+        {
+            handle_recvmsg(cli);
+        }
+        else if (cmd == "sendfile")
+        {
+            handle_sendfile(cli, message);
+        }
+        else if (cmd == "recvfile")
+        {
+            handle_recvfile(cli);
         }
         else if (cmd == "quit")
         {
+            handle_quit(cli);
             break;
         }
         else
@@ -208,8 +139,6 @@ void *handle_client(void *arg)
     }
 
     /* Close connection */
-    buff_out = "<<LEAVE, BYE " + cli->name;
-    send_message_all(buff_out);
     close(cli->connfd);
 
     /* Delete client from queue and yeild thread */
@@ -259,11 +188,11 @@ int main(int argc, char *argv[])
     /* Accept clients */
     while (true)
     {
-        socklen_t clilen = sizeof(cli_addr);
-        connfd = accept(listenfd, (struct sockaddr*)&cli_addr, &clilen);
+        socklen_t client = sizeof(cli_addr);
+        connfd = accept(listenfd, (struct sockaddr*)&cli_addr, &client);
 
         /* Check if max clients is reached */
-        if ((cli_count+1) == MAX_CLIENTS)
+        if ((cli_count + 1) == MAX_CLIENTS)
         {
             std::cerr << "<<MAX CLIENTS REACHED\n";
             std::cerr << "<<REJECT ";
@@ -278,7 +207,6 @@ int main(int argc, char *argv[])
         cli->addr = cli_addr;
         cli->connfd = connfd;
         cli->uid = uid++;
-        cli->name = std::to_string(cli->uid);
 
         /* Add client to the queue and fork thread */
         queue_add(cli);

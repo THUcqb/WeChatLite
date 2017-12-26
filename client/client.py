@@ -39,3 +39,4 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         except KeyboardInterrupt:
             print(info.DISCONNECT)
             commands['guest']['quit'](s)
+

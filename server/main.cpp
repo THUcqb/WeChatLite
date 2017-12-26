@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <iostream>
 #include <string>
+#include <signal.h>
 #include "typedef.hpp"
 #include "actions.hpp"
 #include "json.hpp"
@@ -111,6 +112,10 @@ void *handle_client(void *arg)
         {
             handle_chat(cli, message);
         }
+        else if (cmd == "exitchat")
+        {
+            handle_exitchat(cli);
+        }
         else if (cmd == "sendmsg")
         {
             handle_sendmsg(cli, message);
@@ -153,6 +158,17 @@ void *handle_client(void *arg)
     return NULL;
 }
 
+void load_profiles()
+{
+    // TODO load from file
+}
+
+void dump_profiles(int sig)
+{
+    // TODO dump profiles
+    exit(0);
+}
+
 int main(int argc, char *argv[])
 {
     int listenfd = 0, connfd = 0;
@@ -184,6 +200,8 @@ int main(int argc, char *argv[])
     }
 
     std::cerr << "<[SERVER STARTED]>" << std::endl;
+
+    signal(SIGINT, dump_profiles);
 
     /* Accept clients */
     while (true)

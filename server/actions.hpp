@@ -46,9 +46,9 @@ void handle_login(client_t *cli, json message)
 
 void handle_search(client_t *cli)
 {
-    auto users = json::array();
+    json users = json::object();
     for (auto iter = profiles.begin(); iter != profiles.end(); ++iter)
-        users += iter.key();
+        users[iter.key()] = !iter.value()["connfd"].is_null();
     send_to(users.dump(), cli->connfd);
 }
 
@@ -70,7 +70,12 @@ void handle_add(client_t *cli, json message)
 
 void handle_ls(client_t *cli)
 {
-    send_to(profiles[cli->name]["friends"].dump(), cli->connfd);
+    json friends = json::object();
+    for (auto iter = profiles[cli->name]["friends"].begin();
+         iter != profiles[cli->name]["friends"].end();
+         ++iter)
+        friends[iter.key()] = !profiles[iter.key()]["connfd"].is_null();
+    send_to(friends.dump(), cli->connfd);
 }
 
 void handle_quit(client_t *cli)
@@ -88,15 +93,29 @@ void handle_chat(client_t *cli, json message)
 {
     std::string buff_out;
     std::string fri = message["friend"];
-    std::cout << profiles[cli->name]["friends"] << std::endl;
-    std::cout << fri << std::endl;
     if (profiles[cli->name]["friends"][fri].is_null())
     {
         buff_out = R"({"status": "ERROR"})";
     }
     else
     {
+        profiles[cli->name]["inchat"] = fri;
         buff_out = R"({"status": "OK"})";
+    }
+    send_to(buff_out, cli->connfd);
+}
+
+void handle_exitchat(client_t *cli)
+{
+    std::string buff_out;
+    if (!profiles[cli->name]["inchat"].is_null())
+    {
+        profiles[cli->name].erase("inchat");
+        buff_out = R"({"status": "OK"})";
+    }
+    else
+    {
+        buff_out = R"({"status": "ERROR"})";
     }
     send_to(buff_out, cli->connfd);
 }
@@ -105,7 +124,14 @@ void handle_sendmsg(client_t *cli, json message)
 {
     message.erase("cmd");
     std::string fri = message["friend"];
-    profiles[fri]["msgbuffer"] += message;
+    if (profiles[fri]["inchat"] == cli->name)
+    {
+        send_to(message.dump(), profiles[fri]["connfd"]);
+    }
+    else
+    {
+        profiles[fri]["msgbuffer"] += message;
+    }
 }
 
 void handle_recvmsg(client_t *cli)

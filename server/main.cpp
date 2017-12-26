@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <iostream>
 #include <string>
+#include <fstream>
 #include <signal.h>
 #include "typedef.hpp"
 #include "actions.hpp"
@@ -160,12 +161,26 @@ void *handle_client(void *arg)
 
 void load_profiles()
 {
-    // TODO load from file
+    try
+    {
+        std::ifstream i("profiles.json");
+        i >> profiles;
+    }
+    catch (...)
+    {
+        profiles = json::object();
+    }
 }
 
 void dump_profiles(int sig)
 {
-    // TODO dump profiles
+    for (auto iter = profiles.begin(); iter != profiles.end(); ++iter)
+    {
+        iter.value().erase("connfd");
+        iter.value().erase("inchat");
+    }
+    std::ofstream o("profiles.json");
+    o << std::setw(4) << profiles << std::endl;
     exit(0);
 }
 
@@ -199,9 +214,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    std::cerr << "<[SERVER STARTED]>" << std::endl;
-
+    load_profiles();
     signal(SIGINT, dump_profiles);
+    std::cerr << "<[SERVER STARTED]>" << std::endl;
 
     /* Accept clients */
     while (true)

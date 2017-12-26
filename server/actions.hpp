@@ -63,6 +63,7 @@ void handle_add(client_t *cli, json message)
     }
     else
     {
+        profiles.erase(target);
         buff_out = R"({"status": "ERROR"})";
     }
     send_to(buff_out, cli->connfd);
@@ -95,6 +96,7 @@ void handle_chat(client_t *cli, json message)
     std::string fri = message["friend"];
     if (profiles[cli->name]["friends"][fri].is_null())
     {
+        profiles[cli->name]["friends"].erase(fri);
         buff_out = R"({"status": "ERROR"})";
     }
     else
@@ -124,6 +126,7 @@ void handle_sendmsg(client_t *cli, json message)
 {
     message.erase("cmd");
     std::string fri = message["friend"];
+    message["friend"] = cli->name;
     if (profiles[fri]["inchat"] == cli->name)
     {
         send_to(message.dump(), profiles[fri]["connfd"]);
@@ -146,6 +149,7 @@ void handle_sendfile(client_t *cli, json message)
 {
     message.erase("cmd");
     std::string fri = message["friend"];
+    message["friend"] = cli->name;
     profiles[fri]["filebuffer"] += message;
 }
 

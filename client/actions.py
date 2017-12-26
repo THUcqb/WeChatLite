@@ -38,6 +38,7 @@ def login(s, line):
         if response['status'] == 'OK':
             print(info.LOGIN_OK)
             info.USERNAME = data['username']
+            info.PASSWORD = data['password']
             return True
         else:
             print(info.LOGIN_ERROR)
@@ -80,13 +81,13 @@ def recvfile(s, line=""):
     data = json.loads(s.recv(1024).decode('utf-8'))
     print(info.RECVFILE)
     for item in data['files']:
-        print('Saving file %s from %s' % (item['path'], item['friend']))
+        print('Downloading file %s from %s' % (item['path'], item['friend']))
         try:
             dbx.files_download_to_file(
                 '/Users/cqb/Downloads/' + os.path.basename(item['path']),
                 item['path']
             )
-            print('Downloading successfully.')
+            print('File saved successfully.')
         except Exception:
             print('Downloading failed.')
 
@@ -149,7 +150,9 @@ def sendfile(s, friend, line):
             with open(file_path, 'rb') as f:
                 dbx_path = '/' + info.USERNAME +\
                            '/' + os.path.basename(file_path)
-                dbx.files_upload(f.read(), dbx_path)
+                print(dbx_path)
+                dbx.files_upload(f.read(), dbx_path, mode=dropbox.files.WriteMode('overwrite'))
+                print(dbx_path)
                 data['path'] = dbx_path
         except Exception:
             print(info.SENDFILE_UPLOAD_ERROR)
@@ -163,6 +166,11 @@ def sendfile(s, friend, line):
 def exitchat(s, line=""):
     s.send(b'{"cmd": "exitchat"}')
 
+
+def profile(s, line):
+    print('username: %s' % info.USERNAME)
+    print('password: %s' % info.PASSWORD)
+ 
 
 commands = {
     'guest':
@@ -178,10 +186,12 @@ commands = {
         'search': search,
         'add': add,
         'ls': ls,
+        'sync': ls,
         'recvmsg': recvmsg,
         'recvfile': recvfile,
         'chat': chat,
         'quit': quit,
+        'profile': profile,
     },
     'chat':
     {
@@ -189,3 +199,4 @@ commands = {
         'sendfile': sendfile,
     }
 }
+

@@ -46,9 +46,9 @@ void handle_login(client_t *cli, json message)
 
 void handle_search(client_t *cli)
 {
-    auto users = json::array();
+    json users = json::object();
     for (auto iter = profiles.begin(); iter != profiles.end(); ++iter)
-        users += iter.key();
+        users[iter.key()] = !iter.value()["connfd"].is_null();
     send_to(users.dump(), cli->connfd);
 }
 
@@ -70,7 +70,12 @@ void handle_add(client_t *cli, json message)
 
 void handle_ls(client_t *cli)
 {
-    send_to(profiles[cli->name]["friends"].dump(), cli->connfd);
+    json friends = json::object();
+    for (auto iter = profiles[cli->name]["friends"].begin();
+         iter != profiles[cli->name]["friends"].end();
+         ++iter)
+        friends[iter.key()] = !profiles[iter.key()]["connfd"].is_null();
+    send_to(friends.dump(), cli->connfd);
 }
 
 void handle_quit(client_t *cli)
@@ -94,7 +99,7 @@ void handle_chat(client_t *cli, json message)
     }
     else
     {
-        profiles[cli->name]["inchat"] = cli->name;
+        profiles[cli->name]["inchat"] = fri;
         buff_out = R"({"status": "OK"})";
     }
     send_to(buff_out, cli->connfd);
@@ -119,8 +124,6 @@ void handle_sendmsg(client_t *cli, json message)
 {
     message.erase("cmd");
     std::string fri = message["friend"];
-    // std::cout << profiles[fri]["inchat"].get<std::string>() << std::endl;
-    // std::cout << cli->name << std::endl;
     if (profiles[fri]["inchat"] == cli->name)
     {
         send_to(message.dump(), profiles[fri]["connfd"]);

@@ -22,3 +22,4 @@ SENDMSG_ARG_ERROR = "Send message arg error"
 SENDFILE_OK = "Send file to %s on server successfully"
 SENDFILE_ARG_ERROR = "Send file arg error"
 SENDFILE_UPLOAD_ERROR = "Upload file failed. Try agian with size less than 150MB."
+MESSAGE = 'From %s: %s'

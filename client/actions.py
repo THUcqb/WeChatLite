@@ -20,7 +20,7 @@ def search(s, line):
     data = json.loads(s.recv(1024).decode('utf-8'))
     print(info.SEARCH_USERS)
     for user in data:
-        print(user)
+        print(user + (', ONLINE' if data[user] else ''))
 
 
 def quit(s, line=""):
@@ -64,7 +64,7 @@ def ls(s, line):
     data = json.loads(s.recv(1024).decode('utf-8'))
     print(info.LS_FRIENDS)
     for user in data:
-        print(user)
+        print(user + (', ONLINE' if data[user] else ''))
 
 
 def recvmsg(s, line=""):
@@ -72,7 +72,7 @@ def recvmsg(s, line=""):
     data = json.loads(s.recv(1024).decode('utf-8'))
     print(info.RECVMSG)
     for item in data['msg']:
-        print('From %s: %s' % (item['friend'], item['msg']))
+        print(info.MESSAGE % (item['friend'], item['msg']))
 
 
 def recvfile(s, line=""):
@@ -93,12 +93,11 @@ def recvfile(s, line=""):
 
 def chat_fetch_msg(s):
     while True:
-        msg = s.recv(1024).decode('utf-8')
+        msg = json.loads(s.recv(1024).decode('utf-8'))
         if 'status' in msg:
             break
         else:
-            print(msg)
-            # print('From %s: %s' % (msg['friend'], msg['msg']))
+            print(info.MESSAGE % (msg['friend'], msg['msg']))
 
 
 def chat(s, line):

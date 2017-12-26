@@ -1,6 +1,8 @@
 import json
 import info
 import os
+import time
+import threading
 import dropbox
 dbx = dropbox.Dropbox(
     'X5vzMUOqyzAAAAAAAAAAjlHk8HqJM8U07w8B9fDqDp9q03HQ8UhjRlBiGLarrRro'
@@ -65,7 +67,7 @@ def ls(s, line):
         print(user)
 
 
-def recvmsg(s, line):
+def recvmsg(s, line=""):
     s.send(json.dumps({'cmd': 'recvmsg'}).encode('utf-8'))
     data = json.loads(s.recv(1024).decode('utf-8'))
     print(info.RECVMSG)
@@ -73,7 +75,7 @@ def recvmsg(s, line):
         print('From %s: %s' % (item['friend'], item['msg']))
 
 
-def recvfile(s, line):
+def recvfile(s, line=""):
     s.send(json.dumps({'cmd': 'recvfile'}).encode('utf-8'))
     data = json.loads(s.recv(1024).decode('utf-8'))
     print(info.RECVFILE)
@@ -89,6 +91,16 @@ def recvfile(s, line):
             print('Downloading failed.')
 
 
+def chat_fetch_msg(s):
+    while True:
+        msg = s.recv(1024).decode('utf-8')
+        if 'status' in msg:
+            break
+        else:
+            print(msg)
+            # print('From %s: %s' % (msg['friend'], msg['msg']))
+
+
 def chat(s, line):
     try:
         data = {}
@@ -97,10 +109,14 @@ def chat(s, line):
         response = json.loads(s.recv(1024).decode('utf-8'))
         if response['status'] == 'OK':
             print(info.CHAT_OK)
+            thread = threading.Thread(target=chat_fetch_msg, args=[s])
+            thread.start()
             while True:
                 line = input().strip()
                 cmd = line.split()[0]
                 if cmd == 'exit':
+                    exitchat(s)
+                    thread.join()
                     break
                 else:
                     try:
@@ -143,6 +159,10 @@ def sendfile(s, friend, line):
             s.send(json.dumps(data).encode('utf-8'))
     except ValueError:
         print(info.SENDFILE_ARG_ERROR)
+
+
+def exitchat(s, line=""):
+    s.send(b'{"cmd": "exitchat"}')
 
 
 commands = {

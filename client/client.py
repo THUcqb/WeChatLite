@@ -1,6 +1,7 @@
 import argparse
 import socket
 import info
+import actions
 from actions import commands
 
 parser = argparse.ArgumentParser()
@@ -23,7 +24,6 @@ def event_loop(s):
         else:
             if cmd == 'quit':
                 break
-
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     try:
